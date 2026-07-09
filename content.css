@@ -1,0 +1,45 @@
+/* TVING Watch History Plus - Styles */
+
+#watch-history-more-btn {
+    display: block;
+    width: 100%;
+    padding: 14px 0;
+    margin-top: 16px;
+    text-align: center;
+    font-size: 15px;
+    color: #ff153c;
+    background: transparent;
+    border: 1px solid #ff153c;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background-color 0.2s, color 0.2s;
+}
+
+#watch-history-more-btn:hover {
+    background-color: #ff153c;
+    color: #fff;
+}
+
+#watch-history-more-btn.active {
+    background-color: #ff153c;
+    color: #fff;
+}
+
+#watch-history-more-btn.active:hover {
+    background-color: transparent;
+    color: #ff153c;
+}
+
+#watch-history-area {
+    margin-top: 20px;
+}
+
+.watch-history-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 12px;
+}
+
+.watch-history-grid .item__thumb-new-tving-item-16x9 {
+    border-radius: 12px;
+}

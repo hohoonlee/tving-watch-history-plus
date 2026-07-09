@@ -1,0 +1,21 @@
+# Build outputs
+dist/
+out/
+
+# macOS
+.DS_Store
+
+# Node.js
+node_modules/
+
+# IDE
+.vscode/
+.idea/
+
+# Logs
+*.log
+
+# MCP / MiMoCode / Playwright
+.mcp.json
+.mimocode/
+.playwright-mcp/
