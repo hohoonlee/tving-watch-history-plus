@@ -9,7 +9,11 @@ PROJECT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 OUT_DIR="${PROJECT_DIR}/out"
 DIST_DIR="${PROJECT_DIR}/dist"
 
-echo "빌드 시작..."
+# manifest.json에서 버전 읽기
+VERSION=$(grep -o '"version": *"[^"]*"' "${PROJECT_DIR}/manifest.json" | cut -d'"' -f4)
+ZIP_NAME="tving-watch-history-plus.v${VERSION}.zip"
+
+echo "빌드 시작... (v${VERSION})"
 
 # dist 디렉토리 정리
 rm -rf "${DIST_DIR}"
@@ -23,6 +27,6 @@ cp "${PROJECT_DIR}/icons/"*.png "${DIST_DIR}/icons/" 2>/dev/null || true
 
 # zip 파일 생성
 cd "${DIST_DIR}"
-zip -r "${OUT_DIR}/tving-watch-history-plus.zip" .
+zip -r "${OUT_DIR}/${ZIP_NAME}" .
 
-echo "빌드 완료: ${OUT_DIR}/tving-watch-history-plus.zip"
+echo "빌드 완료: ${OUT_DIR}/${ZIP_NAME}"
