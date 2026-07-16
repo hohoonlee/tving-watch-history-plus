@@ -222,24 +222,16 @@
         contentMain.appendChild(area);
     };
 
-    const setupObserver = (doc, win) => {
-        new MutationObserver(() => {
-            if (!doc.getElementById(CONFIG.BTN_ID)) addMoreButton(doc, win);
-        }).observe(doc.body, { childList: true, subtree: true });
-    };
-
     const init = (win) => {
         const doc = win.document;
-
-        if (doc.readyState === 'loading') {
-            doc.addEventListener('DOMContentLoaded', () => {
+        const check = () => {
+            if (!doc.getElementById(CONFIG.BTN_ID) && doc.querySelector('.flex > main')) {
                 addMoreButton(doc, win);
-                setupObserver(doc, win);
-            });
-        } else {
-            addMoreButton(doc, win);
-            setupObserver(doc, win);
-        }
+            }
+        };
+
+        check();
+        new MutationObserver(check).observe(doc.body, { childList: true, subtree: true });
     };
 
     // 자동 초기화
