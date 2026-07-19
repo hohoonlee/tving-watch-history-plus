@@ -23,6 +23,7 @@ mkdir -p "${DIST_DIR}/icons"
 cp "${PROJECT_DIR}/manifest.json" "${DIST_DIR}/"
 cp "${PROJECT_DIR}/content.js" "${DIST_DIR}/"
 cp "${PROJECT_DIR}/content.css" "${DIST_DIR}/"
+cp "${PROJECT_DIR}/background.js" "${DIST_DIR}/"
 cp "${PROJECT_DIR}/icons/"*.png "${DIST_DIR}/icons/" 2>/dev/null || true
 
 # zip 파일 생성
