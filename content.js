@@ -5,6 +5,7 @@
 
     const CONFIG = {
         API_BASE: 'https://api.tving.com/v2/media/my/lasts',
+        BFF_API_BASE: 'https://gw.tving.com/bff/web/v3/my/watch/last/all',
         API_KEY: '1e7952d0917d6aab1f0293a063697610',
         IMAGE_CDN: 'https://image.tving.com',
         PAGE_SIZE: 50,
@@ -20,7 +21,44 @@
             if (index > 0) acc[cookie.substring(0, index).trim()] = cookie.substring(index + 1).trim();
             return acc;
         }, {});
-        return { accessToken: cookies['accessToken'] || '', authToken: cookies['authToken'] || '' };
+        return { accessToken: cookies['accessToken'] || '', tvingToken: decodeURIComponent(cookies['_tving_token'] || '') };
+    };
+
+    const fetchBffWatchHistory = async (cookieString) => {
+        const { accessToken, tvingToken } = getTokens(cookieString);
+        const response = await fetch(`${CONFIG.BFF_API_BASE}?pageNo=1&pageSize=${CONFIG.PAGE_SIZE}`, {
+            credentials: 'include',
+            headers: {
+                'accept': 'application/json',
+                'Access-Token': accessToken,
+                'Authorization': `Bearer ${tvingToken}`
+            }
+        });
+        return response.json();
+    };
+
+    const buildProgramCodeMap = async (cookieString) => {
+        const codeMap = new Map();
+        const response = await fetchBffWatchHistory(cookieString);
+
+        if (response.data?.items) {
+            response.data.items.forEach(item => {
+                const deleteCode = item.deleteCode || '';
+                const parts = deleteCode.split('|');
+                const code = parts.length === 2 ? parts[1] : null;
+                if (code) {
+                    codeMap.set(code, {
+                        code: parts[0],
+                        title: item.title,
+                        lastPlayTime: item.lastPlayTime,
+                        totalPlayTime: item.totalPlayTime,
+                        frequency: item.frequency
+                    });
+                }
+            });
+        }
+
+        return codeMap;
     };
 
     const fetchWatchHistory = async (pageNo = 1, cookieString) => {
@@ -58,16 +96,18 @@
         const lastPlayTime = parseInt(item.lastPlayTime) || 0;
         const groupId = isMovie ? contentCode : (content.program?.series_code || content.program?.code || contentCode);
 
-        return { content, isMovie, lastPlayTime, groupId, vodCode: content.vod_code || contentCode };
+        return { content, isMovie, lastPlayTime, groupId, vodCode: content.program?.code || contentCode };
     }
 
-    const mapToDisplayItems = (items) => {
+    const mapToDisplayItems = (items, programCodeMap) => {
         return items.map(item => {
             const { content, isMovie, lastPlayTime, vodCode } = parseItem(item);
+            const lastsEpisode = programCodeMap?.get(vodCode);
+            const hasNextEpisode = lastsEpisode?.code && lastsEpisode?.code !== content?.episode?.code;
             const programName = isMovie ? (content.movie?.name?.ko || '') : (content.program?.name?.ko || '');
-            const episodeName = isMovie ? '' : (content.vod_name?.ko || '');
-            const duration = content.episode?.duration || content.movie?.duration || 0;
-            const progress = duration > 0 ? Math.min((lastPlayTime / duration) * 100, 100) : 0;
+            const episodeName = isMovie ? '' : (lastsEpisode?.title || content.vod_name?.ko || '');
+            const duration = lastsEpisode?.totalPlayTime || content.episode?.duration || content.movie?.duration || 0;
+            const progress = duration > 0 ? Math.min(((lastsEpisode?.lastPlayTime ?? lastPlayTime) / duration) * 100, 100) : 0;
             const rawImage = isMovie
                 ? (content.movie?.image?.find(img => img.code === 'CAIM2600')?.url || content.movie?.image?.[0]?.url || '')
                 : (content.program?.image?.find(img => img.code === 'CAIP0500')?.url || content.program_horizontal_image || content.episode_image || '');
@@ -79,7 +119,8 @@
                 vodCode,
                 image,
                 lastWatchTime: item.viewDate,
-                progress
+                progress,
+                hasNextEpisode
             };
         });
     };
@@ -96,14 +137,16 @@
 
     const transDisplayItemToHTMLString = (vod) => {
         const imageUrl = vod.image ? `${CONFIG.IMAGE_CDN}${vod.image}` : '';
-        const { name, episodeName, vodCode, progress } = vod;
+        const { name, episodeName, vodCode, progress, hasNextEpisode } = vod;
         const watchTime = formatDate(vod.lastWatchTime);
+        const borderStyle = hasNextEpisode ? 'border: 2px solid #fbbf24;' : '';
         return `
             <a href="/contents/${vodCode}" class="group">
                 <div class="hover-supported:hover:translate-y-[-0.75rem] group transform transition duration-500 will-change-[transform]">
-                    <div class="item__thumb-new-tving-item cursor-pointer item__thumb-new-tving-item-16x9">
+                    <div class="item__thumb-new-tving-item cursor-pointer item__thumb-new-tving-item-16x9" style="${borderStyle}">
                         ${imageUrl ? `<img src="${imageUrl}" alt="${name}" class="atom-poster-img visible" onerror="this.style.display='none'">` : ''}
                         ${progress > 0 ? `<div class="atom-progressBar-wrapper z-30"><div class="atom-progressBar-percent" style="width:${progress}%"></div></div>` : ''}
+                    </div>
                     </div>
                     <div class="mt-[0.83rem] cursor-pointer">
                         <p class="truncate text-[1.33333rem] font-bold leading-[1.5] text-white" title="${name}">${name}</p>
@@ -126,12 +169,16 @@
         let isLoading = false;
         let currentPage = 1;
         let hasMore = true;
+        let localProgramCodeMap = null;
         const loadedIds = new Set();
 
         return async () => {
             if (isLoading || !hasMore || !grid) return false;
             isLoading = true;
             try {
+                if(currentPage === 1) {
+                    localProgramCodeMap = await buildProgramCodeMap(cookie);
+                }
                 const response = await fetchWatchHistory(currentPage, cookie);
                 if (response.body && response.body.result) {
                     const newItems = response.body.result.filter(item => {
@@ -141,7 +188,7 @@
                         return true;
                     });
                     hasMore = response.body.has_more === 'Y';
-                    if (newItems.length > 0) appendDisplayItems(grid, mapToDisplayItems(newItems));
+                    if (newItems.length > 0) appendDisplayItems(grid, mapToDisplayItems(newItems, localProgramCodeMap));
                     currentPage++;
                 }
                 return false;
